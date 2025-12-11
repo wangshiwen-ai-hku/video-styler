@@ -357,6 +357,7 @@ class WanModel(torch.nn.Module):
                 context: torch.Tensor,
                 clip_feature: Optional[torch.Tensor] = None,
                 y: Optional[torch.Tensor] = None,
+                rope_indices: Optional[torch.Tensor] = None,
                 use_gradient_checkpointing: bool = False,
                 use_gradient_checkpointing_offload: bool = False,
                 **kwargs,
@@ -373,11 +374,21 @@ class WanModel(torch.nn.Module):
         
         x, (f, h, w) = self.patchify(x)
         
-        freqs = torch.cat([
-            self.freqs[0][:f].view(f, 1, 1, -1).expand(f, h, w, -1),
-            self.freqs[1][:h].view(1, h, 1, -1).expand(f, h, w, -1),
-            self.freqs[2][:w].view(1, 1, w, -1).expand(f, h, w, -1)
-        ], dim=-1).reshape(f * h * w, 1, -1).to(x.device)
+        # Support custom RoPE indices for video editing
+        if rope_indices is not None:
+            # Use custom temporal indices (for keyframe editing)
+            freqs = torch.cat([
+                self.freqs[0][rope_indices].view(len(rope_indices), 1, 1, -1).expand(len(rope_indices), h, w, -1),
+                self.freqs[1][:h].view(1, h, 1, -1).expand(len(rope_indices), h, w, -1),
+                self.freqs[2][:w].view(1, 1, w, -1).expand(len(rope_indices), h, w, -1)
+            ], dim=-1).reshape(len(rope_indices) * h * w, 1, -1).to(x.device)
+        else:
+            # Standard sequential indices
+            freqs = torch.cat([
+                self.freqs[0][:f].view(f, 1, 1, -1).expand(f, h, w, -1),
+                self.freqs[1][:h].view(1, h, 1, -1).expand(f, h, w, -1),
+                self.freqs[2][:w].view(1, 1, w, -1).expand(f, h, w, -1)
+            ], dim=-1).reshape(f * h * w, 1, -1).to(x.device)
         
         def create_custom_forward(module):
             def custom_forward(*inputs):
