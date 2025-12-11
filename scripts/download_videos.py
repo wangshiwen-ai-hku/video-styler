@@ -26,8 +26,8 @@ try:
     snapshot_download(
         repo_id="QingyanBai/Ditto-1M",
         repo_type="dataset",
-        local_dir="/data/shiwen/ditto/Ditto-1M", 
-        allow_patterns=["videos/source/*", "videos/global_style1/*", "videos/global_style2/*"],
+        local_dir="./Ditto-1M/tests", 
+        allow_patterns=["mini_test_videos/*"],
         resume_download=True,  # 支持断点续传
         local_dir_use_symlinks=False,  # 不使用符号链接，避免权限问题
         # max_workers=8,  # 增加并发数以提升下载速度（香港网络通常可以支持更多并发）

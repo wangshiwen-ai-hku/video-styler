@@ -62,11 +62,11 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="InstructV2V Pipeline.")
 
-    parser.add_argument("--input_video", type=str, required=True, help="Path to the input video file.")
-    parser.add_argument("--output_video", type=str, required=True, help="Path to save the output video file.")
+    parser.add_argument("--input_video", type=str, default='./Ditto-1M/tests/mini_test_videos/0fb4e6607c7061b57fe4396b5872675a.mp4', help="Path to the input video file.")
+    parser.add_argument("--output_video", type=str, default='./results/scene_02_lego.mp4', help="Path to save the output video file.")
     parser.add_argument("--lora_path", type=str, default=None, help="Optional path to a LoRA model file (.safetensors).")
     parser.add_argument("--device_id", type=int, default=0, help="The ID of the CUDA device to use (e.g., 0, 1, 2).")
-    parser.add_argument("--prompt", type=str, required=True, help="The positive prompt describing the target style.")
+    parser.add_argument("--prompt", type=str, default='Make it the LEGO style.', help="The positive prompt describing the target style.")
     parser.add_argument("--height", type=int, default=480, help="The height to use for video processing.")
     parser.add_argument("--width", type=int, default=832, help="The width to use for video processing.")
     parser.add_argument("--num_frames", type=int, default=73, help="The number of video frames to process.")
