@@ -203,7 +203,7 @@ async def init_context_node(state: State) -> State:
         }
         path = _save_state_json(new_state, "init_context")
         log_save(f"Save initial context state to {path}")
-        new_state["current_node"] = "style_analysis"
+        new_state["current_node"] = "edit_analysis"
         return new_state
 
     except Exception as e:
@@ -211,17 +211,17 @@ async def init_context_node(state: State) -> State:
         state['current_node'] = "init_context_node"
         return state
 
-async def style_analysis_node(state: State) -> State:
+async def edit_analysis_node(state: State) -> State:
     """Analyze the style reference."""
     # Check if style analysis already completed
-    if (state.get("style_analysis") and
-        state["style_analysis"].get("dominant_style_prefix") and
-        state.get("consistent_style_prompt")):
+    if (state.get("edit_analysis") and
+        state["edit_analysis"].get("dominant_style_prefix") and
+        state.get("consistent_edit_prompt")):
         log_info("Style analysis already completed, skipping...")
         return state
 
     log_info("Analyzing style...")
-    agent_config = get_agent_config("style_analysis_agent")
+    agent_config = get_agent_config("edit_analysis_agent")
     llm = get_llm(agent_config)
     system_prompt = agent_config.prompt
     
@@ -243,10 +243,10 @@ async def style_analysis_node(state: State) -> State:
         # Fallback if no input
         fallback_state = {
              **state,
-            "style_analysis": {"dominant_style_prefix": "Default Style", "specific_style_prefix": "Standard", "negative_prompt": ""},
-            "consistent_style_prompt": "Standard style"
+            "edit_analysis": {"dominant_style_prefix": "Default Style", "specific_style_prefix": "Standard", "negative_prompt": ""},
+            "consistent_edit_prompt": "Standard style"
         }
-        path = _save_state_json(fallback_state, "style_analysis")
+        path = _save_state_json(fallback_state, "edit_analysis")
         log_save(f"Save style analysis fallback state to {path}")
         return fallback_state
 
@@ -269,10 +269,10 @@ async def style_analysis_node(state: State) -> State:
         
         new_state = {
             **state,
-            "style_analysis": analysis,
-            "consistent_style_prompt": consistent_prompt
+            "edit_analysis": analysis,
+            "consistent_edit_prompt": consistent_prompt
         }
-        path = _save_state_json(new_state, "style_analysis")
+        path = _save_state_json(new_state, "edit_analysis")
         log_save(f"Save style analysis state to {path}")
         new_state["current_node"] = "video_style"
         return new_state
@@ -280,7 +280,7 @@ async def style_analysis_node(state: State) -> State:
     except Exception as e:
         log_error(f"Error in style analysis: {e}")
         # Fallback
-        _save_state_json(state, "style_analysis_error")
+        _save_state_json(state, "edit_analysis_error")
         return state
 
 async def video_style_node(state: State) -> State:
@@ -294,7 +294,7 @@ async def video_style_node(state: State) -> State:
         return state
 
     # Validate that we have required style analysis
-    if not state.get("style_analysis", {}).get("dominant_style_prefix"):
+    if not state.get("edit_analysis", {}).get("dominant_style_prefix"):
         log_error("Style analysis not completed, cannot proceed with video styling")
         raise ValueError("Missing style analysis results")
         
@@ -306,20 +306,21 @@ async def video_style_node(state: State) -> State:
     system_prompt = agent_config.prompt
     
     # Inputs
-    style_desc = state["consistent_style_prompt"]
+    style_desc = state["consistent_edit_prompt"]
     curr_image_path = current_frame["image_path"]
     inputs = [
         {"type": "text", "text": f"Target Style: {style_desc}"},
         {"type": "text", "text": "Current Content Frame:"},
         {"type": "image", "image": curr_image_path}
     ]
-    
+    prev_frame_img = None
     # Add previous frame context if available
     if idx > 0:
         prev_frame = frames[idx-1]
         if prev_frame["stylized_image_path"] and os.path.exists(prev_frame["stylized_image_path"]):
             inputs.insert(1, {"type": "image", "image": prev_frame["stylized_image_path"]})
             inputs.insert(1, {"type": "text", "text": "Previous Stylized Frame:"})
+            prev_frame_img = prev_frame["stylized_image_path"]
         if prev_frame["styling_prompt"]:
             inputs.insert(1, {"type": "text", "text": "Previous Styling Prompt:"})
             inputs.insert(1, {"type": "text", "text": prev_frame["styling_prompt"]})
@@ -354,14 +355,21 @@ async def video_style_node(state: State) -> State:
         stylized_dir.mkdir(parents=True, exist_ok=True)
         prompts_dir.mkdir(parents=True, exist_ok=True)
         # We combine the consistent style prompt with the specific frame prompt
-        full_prompt = f"Stylize prompt: {generated_prompt} Negative prompt: {state['style_analysis']['negative_prompt']}"
+        full_prompt = f"Stylize prompt: {generated_prompt} Negative prompt: {state['edit_analysis']['negative_prompt']}"
         
         open(prompts_dir / f"frame_{idx:04d}.txt", "w").write(full_prompt)
         log_save(f"[{idx:04d}] Saved prompt to {prompts_dir / f'frame_{idx:04d}.txt'}")
 
+        image_paths = [curr_image_path]
+        text_prompt = full_prompt
+
+        if prev_frame_img:
+            text_prompt = "Image 1 is the previous stylized frame, Image 2 is the current frame to be stylized, and the stylized prompt to current frame is: \n" + text_prompt
+            image_paths.insert(0, prev_frame_img)
+        
         result_image = image_generation_tool(
-            text_prompt=full_prompt,
-            image_paths=[curr_image_path],
+            text_prompt=text_prompt,
+            image_paths=image_paths,
             model="gemini-2.5-flash-image" ,
             target_ratio=state["target_ratio"]
         )
@@ -482,8 +490,8 @@ def router_logic(state: State) -> State:
     log_info(f"Router to {state['current_node']}")
     if state["current_node"] == "init_context":
         return "init_context"
-    elif state["current_node"] == "style_analysis":
-        return "style_analysis"
+    elif state["current_node"] == "edit_analysis":
+        return "edit_analysis"
     elif state["current_node"] == "video_style":
         return "video_style"
     elif state["current_node"] == "combine_video":
@@ -493,7 +501,7 @@ def router_logic(state: State) -> State:
 
 # Build Graph
 graph.add_node("init_context", init_context_node)
-graph.add_node("style_analysis", style_analysis_node)
+graph.add_node("edit_analysis", edit_analysis_node)
 graph.add_node("router", router_node)
 graph.add_node("video_style", video_style_node)
 graph.add_node("combine_video", combine_video_node)
@@ -501,7 +509,7 @@ graph.set_entry_point("init_context")
 
 
 graph.add_edge("init_context", "router")
-graph.add_edge("style_analysis", "router")
+graph.add_edge("edit_analysis", "router")
 graph.add_edge("video_style", "router")
 graph.add_edge("combine_video", "router")
 
@@ -509,7 +517,7 @@ graph.add_conditional_edges("router",
 router_logic,
 {
     "init_context": "init_context",
-    "style_analysis": "style_analysis",
+    "edit_analysis": "edit_analysis",
     "video_style": "video_style",
     "combine_video": "combine_video",
     "end": END

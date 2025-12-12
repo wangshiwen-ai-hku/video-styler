@@ -96,8 +96,8 @@ class IntegratedVideoEditor:
             "current_frame_index": 0,
             "processed_frames": [],
             "video_metadata": {},
-            "style_analysis": {},
-            "consistent_style_prompt": "",
+            "edit_analysis": {},
+            "consistent_edit_prompt": "",
             "current_node": "init_context",
         }
         
@@ -120,8 +120,8 @@ class IntegratedVideoEditor:
         print(f"Keyframe indices: {keyframe_indices}")
         
         metadata = {
-            "style_analysis": final_state.get("style_analysis", {}),
-            "consistent_style_prompt": final_state.get("consistent_style_prompt", ""),
+            "edit_analysis": final_state.get("edit_analysis", {}),
+            "consistent_edit_prompt": final_state.get("consistent_edit_prompt", ""),
             "video_metadata": final_state.get("video_metadata", {}),
         }
         

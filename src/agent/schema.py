@@ -42,8 +42,8 @@ class State(TypedDict):
     style_reference: StyleReference
     target_ratio: float
     # Analysis result
-    style_analysis: StyleAnalysis
-    consistent_style_prompt: str
+    edit_analysis: StyleAnalysis
+    consistent_edit_prompt: str
     
     # Processing state
     keyframe_styling_states: List[KeyFrameStylingState]

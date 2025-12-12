@@ -8,7 +8,7 @@ default_model:
 # Agent Categories
 agents:
   core:
-    style_analysis_agent:
+    edit_analysis_agent:
       model:
         model_provider: ${GOOGLE_PROVIDER}
         model: gemini-2.5-flash
